@@ -327,6 +327,28 @@ final class EditorsNoteService: ObservableObject {
         } else {
             env["PATH"] = homeBin
         }
+
+        // Honor CodeIsland's "Anthropic API Proxy" user preference
+        // (Settings → General). This plugin is loaded as a dylib into the
+        // CodeIsland process so UserDefaults.standard resolves to the host
+        // app's preferences. We inject HTTPS_PROXY / HTTP_PROXY / ALL_PROXY
+        // into THIS subprocess's environment only — we do not call
+        // launchctl setenv, so we do not pollute the global env used by
+        // other GUI apps. Claude CLI itself already does the same thing
+        // via a shell function wrapper (~/.claude/shell-snapshots/...),
+        // this just mirrors that behavior for programmatic invocations.
+        if let proxy = UserDefaults.standard.string(forKey: "anthropicProxyURL") {
+            let trimmed = proxy.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                env["HTTPS_PROXY"] = trimmed
+                env["HTTP_PROXY"] = trimmed
+                env["ALL_PROXY"] = trimmed
+                env["https_proxy"] = trimmed
+                env["http_proxy"] = trimmed
+                env["all_proxy"] = trimmed
+            }
+        }
+
         process.environment = env
 
         let stdoutPipe = Pipe()
